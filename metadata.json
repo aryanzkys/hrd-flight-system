@@ -1,0 +1,6 @@
+{
+  "name": "Portal HRD & Corporate Travel",
+  "description": "Sistem terintegrasi manajemen cuti pegawai serta pemesanan dan otorisasi tiket pesawat korporat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
