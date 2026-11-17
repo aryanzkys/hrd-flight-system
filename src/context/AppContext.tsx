@@ -19,6 +19,7 @@ import {
   PROFIL_MEMBER_LENGKAP,
 } from '../data/mockData';
 import {
+  isProfilLengkap,
   JadwalPenerbangan,
   Pegawai,
   PemesananTiket,
@@ -51,6 +52,17 @@ interface AppContextValue extends PersistedAppState {
   setProfilMemberAccounts: Dispatch<SetStateAction<ProfilPersonal[]>>;
   switchProfilMemberAccount: (memberId: string) => void;
   setPemesananList: Dispatch<SetStateAction<PemesananTiket[]>>;
+  tambahPemesanan: (pesananBaru: PemesananTiket) => void;
+  batalkanPemesanan: (kodeBookingReference: string) => void;
+  validasiTiketMember: (kodeBookingReference: string) => {
+    success: boolean;
+    message: string;
+  };
+  otorisasiTiketByKode: (kodeInput: string) => {
+    success: boolean;
+    message: string;
+    booking?: PemesananTiket;
+  };
   resetToInitialData: () => void;
 }
 
@@ -108,7 +120,11 @@ function loadStateFromStorage(): PersistedAppState {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
-export function AppProvider({ children }: { children: ReactNode }) {
+export interface AppProviderProps {
+  children: ReactNode;
+}
+
+export function AppProvider({ children }: Readonly<AppProviderProps>) {
   const [initialState] = useState<PersistedAppState>(() =>
     loadStateFromStorage(),
   );
@@ -178,6 +194,85 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [profilMemberAccounts],
   );
 
+  const tambahPemesanan = useCallback((pesananBaru: PemesananTiket) => {
+    setPemesananList((prev) => [pesananBaru, ...prev]);
+  }, []);
+
+  const batalkanPemesanan = useCallback((kodeBookingReference: string) => {
+    setPemesananList((prev) =>
+      prev.filter((item) => item.kodeBookingReference !== kodeBookingReference),
+    );
+  }, []);
+
+  const validasiTiketMember = useCallback(
+    (kodeBookingReference: string) => {
+      if (!isProfilLengkap(profilMember)) {
+        return {
+          success: false,
+          message: 'data profil tidak lengkap',
+        };
+      }
+
+      setPemesananList((prev) =>
+        prev.map((item) =>
+          item.kodeBookingReference === kodeBookingReference
+            ? { ...item, isValidated: true }
+            : item,
+        ),
+      );
+
+      return {
+        success: true,
+        message: 'Tiket berhasil divalidasi menggunakan data profil member.',
+      };
+    },
+    [profilMember],
+  );
+
+  const otorisasiTiketByKode = useCallback(
+    (kodeInput: string) => {
+      const normalizedCode = kodeInput.trim().toUpperCase();
+      if (normalizedCode.length === 0) {
+        return {
+          success: false,
+          message: 'kode booking reference tidak sesuai',
+        };
+      }
+
+      const foundBooking = pemesananList.find(
+        (item) =>
+          item.kodeBookingReference.trim().toUpperCase() === normalizedCode,
+      );
+
+      if (!foundBooking) {
+        return {
+          success: false,
+          message: 'kode booking reference tidak sesuai',
+        };
+      }
+
+      const updatedBooking: PemesananTiket = {
+        ...foundBooking,
+        isAuthorized: true,
+      };
+
+      setPemesananList((prev) =>
+        prev.map((item) =>
+          item.kodeBookingReference.trim().toUpperCase() === normalizedCode
+            ? updatedBooking
+            : item,
+        ),
+      );
+
+      return {
+        success: true,
+        message: 'Otorisasi tiket berhasil diverifikasi.',
+        booking: updatedBooking,
+      };
+    },
+    [pemesananList],
+  );
+
   const resetToInitialData = useCallback(() => {
     const defaults = createInitialState();
     setCurrentRole(defaults.currentRole);
@@ -215,6 +310,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       switchProfilMemberAccount,
       pemesananList,
       setPemesananList,
+      tambahPemesanan,
+      batalkanPemesanan,
+      validasiTiketMember,
+      otorisasiTiketByKode,
       resetToInitialData,
     }),
     [
@@ -227,6 +326,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       profilMemberAccounts,
       switchProfilMemberAccount,
       pemesananList,
+      tambahPemesanan,
+      batalkanPemesanan,
+      validasiTiketMember,
+      otorisasiTiketByKode,
       resetToInitialData,
     ],
   );
